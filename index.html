@@ -222,7 +222,7 @@
                     // Circular orbit around center
                     mesh.position.x = Math.cos(introTime * orbitSpeed + angleOffset) * radius;
                     mesh.position.y = Math.sin(introTime * orbitSpeed + angleOffset) * radius;
-                    mesh.position.z = Math.sin(introTime * orbitSpeed * 0.5 + angleOffset) * 1.5;
+                    mesh.position.z = Math.sin(introTime * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
 
                     // Individual rotation
                     mesh.rotation.x += 0.01;
@@ -263,8 +263,8 @@
                     const bounceHeight = Math.abs(Math.sin((time + timeOffset) * 1.2)) * 2.2 - 0.6;
                     mesh.position.y = bounceHeight;
 
-                    // Depth bouncing (forward-backward) - ENHANCED for stronger spatial sense
-                    mesh.position.z = Math.sin((time + timeOffset) * 0.6) * 3.5;
+                    // Depth bouncing (forward-backward) - keep safe distance from camera
+                    mesh.position.z = Math.sin((time + timeOffset) * 0.6) * 2.0 - 1.0;
 
                     // Scale based on depth to enhance perspective (closer = bigger)
                     const depthScale = 1 + (mesh.position.z / 10);
