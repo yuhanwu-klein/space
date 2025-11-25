@@ -110,6 +110,7 @@
         let isSphere = false;
         let morphProgress = 0;
         const morphSpeed = 0.02;
+        let time = 0;
 
         // Create morph target vertices
         function createMorphedGeometry(progress) {
@@ -193,6 +194,12 @@
             // Rotate the mesh
             mesh.rotation.x += 0.005;
             mesh.rotation.y += 0.01;
+
+            // Smooth spatial movement - gentle floating motion
+            time += 0.01;
+            mesh.position.x = Math.sin(time * 0.7) * 1.5;
+            mesh.position.y = Math.cos(time * 0.5) * 1.2;
+            mesh.position.z = Math.sin(time * 0.3) * 0.8;
 
             // Handle morphing animation
             if (isTransforming) {
