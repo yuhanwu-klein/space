@@ -26,8 +26,10 @@
     </style>
 </head>
 <body>
-    <div id="info">Click the box to transform it into a sphere!</div>
+    <div id="info">Hand detection: Show hand to pause animation</div>
+    <video id="video" width="320" height="240" autoplay style="position: absolute; top: 10px; right: 10px; border: 2px solid white; display: none;"></video>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handtrack.js@latest/dist/handtrack.min.js"></script>
     <script>
         // Scene setup
         const scene = new THREE.Scene();
@@ -170,7 +172,55 @@
 
         // Animation state
         let time = 0;
+        let isPaused = false; // Animation pause state
 
+        // Hand detection setup
+        const video = document.getElementById('video');
+        let handDetectionModel = null;
+
+        // Initialize hand detection
+        const modelParams = {
+            flipHorizontal: true,
+            maxNumBoxes: 2,
+            iouThreshold: 0.5,
+            scoreThreshold: 0.6,
+        };
+
+        // Load hand detection model
+        handTrack.load(modelParams).then(model => {
+            handDetectionModel = model;
+            console.log('Hand detection model loaded');
+            startVideo();
+        });
+
+        function startVideo() {
+            handTrack.startVideo(video).then(status => {
+                console.log('Video started:', status);
+                if (status) {
+                    runDetection();
+                }
+            });
+        }
+
+        function runDetection() {
+            if (handDetectionModel) {
+                handDetectionModel.detect(video).then(predictions => {
+                    // If hand detected, pause animation
+                    if (predictions.length > 0) {
+                        isPaused = true;
+                        document.getElementById('info').textContent = 'Hand detected - Animation PAUSED';
+                        document.getElementById('info').style.color = '#ff6666';
+                    } else {
+                        isPaused = false;
+                        document.getElementById('info').textContent = 'No hand detected - Animation RUNNING';
+                        document.getElementById('info').style.color = '#66ff66';
+                    }
+
+                    // Continue detection
+                    requestAnimationFrame(runDetection);
+                });
+            }
+        }
 
         // Handle window resize
         window.addEventListener('resize', function() {
@@ -188,29 +238,32 @@
                 return; // Wait for texture to load
             }
 
-            time += 0.016; // ~60fps
+            // Only update animation if not paused
+            if (!isPaused) {
+                time += 0.016; // ~60fps
 
-            const radius = 2.5;
-            const orbitSpeed = 0.5; // Slower orbital speed
+                const radius = 2.5;
+                const orbitSpeed = 0.5; // Slower orbital speed
 
-            // Three circles orbital dance
-            for (let i = 0; i < meshes.length; i++) {
-                const mesh = meshes[i];
-                const angleOffset = (i * Math.PI * 2) / meshCount;
+                // Three circles orbital dance
+                for (let i = 0; i < meshes.length; i++) {
+                    const mesh = meshes[i];
+                    const angleOffset = (i * Math.PI * 2) / meshCount;
 
-                // Circular orbit around center
-                mesh.position.x = Math.cos(time * orbitSpeed + angleOffset) * radius;
-                mesh.position.y = Math.sin(time * orbitSpeed + angleOffset) * radius;
-                mesh.position.z = Math.sin(time * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
+                    // Circular orbit around center
+                    mesh.position.x = Math.cos(time * orbitSpeed + angleOffset) * radius;
+                    mesh.position.y = Math.sin(time * orbitSpeed + angleOffset) * radius;
+                    mesh.position.z = Math.sin(time * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
 
-                // Individual rotation - slower
-                mesh.rotation.x += 0.003;
-                mesh.rotation.y += 0.005;
-                mesh.rotation.z += 0.002;
+                    // Individual rotation - slower
+                    mesh.rotation.x += 0.003;
+                    mesh.rotation.y += 0.005;
+                    mesh.rotation.z += 0.002;
 
-                // Scale animation
-                const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
-                mesh.scale.set(pulse, pulse, pulse);
+                    // Scale animation
+                    const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
+                    mesh.scale.set(pulse, pulse, pulse);
+                }
             }
 
             // Camera looks at center
