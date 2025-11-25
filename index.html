@@ -170,6 +170,8 @@
         // Animation state
         let time = 0;
         let isSphere = [false, false, false]; // Track which meshes are spheres
+        let isFading = [false, false, false]; // Track which meshes are fading out
+        let fadeProgress = [1.0, 1.0, 1.0]; // Opacity for each mesh (1.0 = fully visible)
 
         // Raycaster for click detection
         const raycaster = new THREE.Raycaster();
@@ -193,9 +195,9 @@
                 const clickedMesh = intersects[0].object;
                 const meshIndex = meshes.indexOf(clickedMesh);
 
-                if (meshIndex !== -1) {
-                    // Toggle between cube and sphere
-                    isSphere[meshIndex] = !isSphere[meshIndex];
+                if (meshIndex !== -1 && !isSphere[meshIndex]) {
+                    // Only transform cube to sphere (not sphere back to cube)
+                    isSphere[meshIndex] = true;
 
                     // Get the current material and inner sphere
                     const currentMaterial = clickedMesh.material;
@@ -204,11 +206,8 @@
                     // Remove old mesh
                     scene.remove(clickedMesh);
 
-                    // Create new mesh with new geometry
-                    const newMesh = new THREE.Mesh(
-                        isSphere[meshIndex] ? sphereGeometry : boxGeometry,
-                        currentMaterial
-                    );
+                    // Create new mesh with sphere geometry
+                    const newMesh = new THREE.Mesh(sphereGeometry, currentMaterial);
 
                     // Re-add the inner sphere
                     if (innerSphere) {
@@ -223,6 +222,9 @@
                     // Replace in array and add to scene
                     meshes[meshIndex] = newMesh;
                     scene.add(newMesh);
+
+                    // Start fade-out animation
+                    isFading[meshIndex] = true;
                 }
             }
         }
@@ -268,6 +270,21 @@
                 // Scale animation
                 const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
                 mesh.scale.set(pulse, pulse, pulse);
+
+                // Handle fade-out animation
+                if (isFading[i]) {
+                    fadeProgress[i] -= 0.015; // Fade speed
+
+                    if (fadeProgress[i] <= 0) {
+                        fadeProgress[i] = 0;
+                        isFading[i] = false;
+                        // Make outer mesh invisible
+                        mesh.visible = false;
+                    } else {
+                        // Update material opacity
+                        mesh.material.opacity = fadeProgress[i] * 0.8; // Original opacity was 0.8
+                    }
+                }
             }
 
             // Camera looks at center
