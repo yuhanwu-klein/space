@@ -177,8 +177,9 @@
         // Hand detection setup
         const video = document.getElementById('video');
         let handDetectionModel = null;
+        let handDetectionEnabled = false;
 
-        // Initialize hand detection
+        // Initialize hand detection with error handling
         const modelParams = {
             flipHorizontal: true,
             maxNumBoxes: 2,
@@ -186,24 +187,44 @@
             scoreThreshold: 0.6,
         };
 
-        // Load hand detection model
-        handTrack.load(modelParams).then(model => {
-            handDetectionModel = model;
-            console.log('Hand detection model loaded');
-            startVideo();
-        });
+        // Check if handTrack is available
+        if (typeof handTrack !== 'undefined') {
+            // Load hand detection model
+            handTrack.load(modelParams).then(model => {
+                handDetectionModel = model;
+                console.log('Hand detection model loaded');
+                startVideo();
+            }).catch(err => {
+                console.error('Error loading hand detection model:', err);
+                document.getElementById('info').textContent = 'Hand detection unavailable - Animation RUNNING';
+                document.getElementById('info').style.color = '#ffaa66';
+            });
+        } else {
+            console.warn('handTrack library not loaded');
+            document.getElementById('info').textContent = 'Hand detection unavailable - Animation RUNNING';
+            document.getElementById('info').style.color = '#ffaa66';
+        }
 
         function startVideo() {
             handTrack.startVideo(video).then(status => {
                 console.log('Video started:', status);
                 if (status) {
+                    handDetectionEnabled = true;
                     runDetection();
+                } else {
+                    console.warn('Could not start video');
+                    document.getElementById('info').textContent = 'Camera access denied - Animation RUNNING';
+                    document.getElementById('info').style.color = '#ffaa66';
                 }
+            }).catch(err => {
+                console.error('Error starting video:', err);
+                document.getElementById('info').textContent = 'Camera error - Animation RUNNING';
+                document.getElementById('info').style.color = '#ffaa66';
             });
         }
 
         function runDetection() {
-            if (handDetectionModel) {
+            if (handDetectionModel && handDetectionEnabled) {
                 handDetectionModel.detect(video).then(predictions => {
                     // If hand detected, pause animation
                     if (predictions.length > 0) {
@@ -218,6 +239,12 @@
 
                     // Continue detection
                     requestAnimationFrame(runDetection);
+                }).catch(err => {
+                    console.error('Error in hand detection:', err);
+                    handDetectionEnabled = false;
+                    isPaused = false;
+                    document.getElementById('info').textContent = 'Hand detection error - Animation RUNNING';
+                    document.getElementById('info').style.color = '#ffaa66';
                 });
             }
         }
