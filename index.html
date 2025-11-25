@@ -278,8 +278,34 @@
                     if (fadeProgress[i] <= 0) {
                         fadeProgress[i] = 0;
                         isFading[i] = false;
-                        // Make outer mesh invisible
-                        mesh.visible = false;
+
+                        // Detach inner metallic sphere
+                        const innerSphere = mesh.children[0];
+                        if (innerSphere) {
+                            // Get world position, rotation, and scale before detaching
+                            const worldPosition = new THREE.Vector3();
+                            const worldQuaternion = new THREE.Quaternion();
+                            const worldScale = new THREE.Vector3();
+                            mesh.getWorldPosition(worldPosition);
+                            mesh.getWorldQuaternion(worldQuaternion);
+                            mesh.getWorldScale(worldScale);
+
+                            // Remove from parent
+                            mesh.remove(innerSphere);
+
+                            // Apply world transforms
+                            innerSphere.position.copy(worldPosition);
+                            innerSphere.quaternion.copy(worldQuaternion);
+                            innerSphere.scale.copy(worldScale);
+
+                            // Remove outer mesh and replace with inner sphere
+                            scene.remove(mesh);
+                            meshes[i] = innerSphere;
+                            scene.add(innerSphere);
+                        } else {
+                            // If no inner sphere, just hide outer mesh
+                            mesh.visible = false;
+                        }
                     } else {
                         // Update material opacity
                         mesh.material.opacity = fadeProgress[i] * 0.8; // Original opacity was 0.8
