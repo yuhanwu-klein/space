@@ -169,6 +169,65 @@
 
         // Animation state
         let time = 0;
+        let isSphere = [false, false, false]; // Track which meshes are spheres
+
+        // Raycaster for click detection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseClick(event) {
+            if (meshes.length === 0) return; // Wait for meshes to load
+
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check for intersections with all meshes
+            const intersects = raycaster.intersectObjects(meshes);
+
+            if (intersects.length > 0) {
+                // Find which mesh was clicked
+                const clickedMesh = intersects[0].object;
+                const meshIndex = meshes.indexOf(clickedMesh);
+
+                if (meshIndex !== -1) {
+                    // Toggle between cube and sphere
+                    isSphere[meshIndex] = !isSphere[meshIndex];
+
+                    // Get the current material and inner sphere
+                    const currentMaterial = clickedMesh.material;
+                    const innerSphere = clickedMesh.children[0]; // Get the metallic sphere inside
+
+                    // Remove old mesh
+                    scene.remove(clickedMesh);
+
+                    // Create new mesh with new geometry
+                    const newMesh = new THREE.Mesh(
+                        isSphere[meshIndex] ? sphereGeometry : boxGeometry,
+                        currentMaterial
+                    );
+
+                    // Re-add the inner sphere
+                    if (innerSphere) {
+                        newMesh.add(innerSphere);
+                    }
+
+                    // Copy position, rotation, and scale from old mesh
+                    newMesh.position.copy(clickedMesh.position);
+                    newMesh.rotation.copy(clickedMesh.rotation);
+                    newMesh.scale.copy(clickedMesh.scale);
+
+                    // Replace in array and add to scene
+                    meshes[meshIndex] = newMesh;
+                    scene.add(newMesh);
+                }
+            }
+        }
+
+        window.addEventListener('click', onMouseClick);
 
         // Handle window resize
         window.addEventListener('resize', function() {
