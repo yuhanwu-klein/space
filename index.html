@@ -46,18 +46,23 @@
         const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
         const sphereGeometry = new THREE.SphereGeometry(1.4, 32, 32);
 
-        // Create transparent material
-        const material = new THREE.MeshPhongMaterial({
-            color: 0x00ffff,
-            transparent: true,
-            opacity: 0.6,
-            wireframe: false,
-            side: THREE.DoubleSide
-        });
+        // Load surface texture for cube and sphere
+        let material;
+        let mesh;
 
-        // Create mesh with box geometry initially
-        let mesh = new THREE.Mesh(boxGeometry, material);
-        scene.add(mesh);
+        textureLoader.load('WechatIMG543.jpg', function(texture) {
+            // Create transparent material with texture
+            material = new THREE.MeshPhongMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+
+            // Create mesh with box geometry initially
+            mesh = new THREE.Mesh(boxGeometry, material);
+            scene.add(mesh);
+        });
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -84,8 +89,11 @@
             const geometry = new THREE.BufferGeometry();
             const boxPositions = boxGeometry.attributes.position.array;
             const spherePositions = sphereGeometry.attributes.position.array;
+            const boxUVs = boxGeometry.attributes.uv.array;
+            const sphereUVs = sphereGeometry.attributes.uv.array;
 
             const positions = new Float32Array(boxPositions.length);
+            const uvs = new Float32Array(boxUVs.length);
 
             for (let i = 0; i < positions.length; i++) {
                 if (isSphere) {
@@ -97,7 +105,18 @@
                 }
             }
 
+            for (let i = 0; i < uvs.length; i++) {
+                if (isSphere) {
+                    // Morphing from sphere to box
+                    uvs[i] = sphereUVs[i] + (boxUVs[i] - sphereUVs[i]) * progress;
+                } else {
+                    // Morphing from box to sphere
+                    uvs[i] = boxUVs[i] + (sphereUVs[i] - boxUVs[i]) * progress;
+                }
+            }
+
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
             geometry.computeVertexNormals();
 
             return geometry;
@@ -108,6 +127,8 @@
         const mouse = new THREE.Vector2();
 
         function onMouseClick(event) {
+            if (!mesh) return; // Wait for texture to load
+
             // Calculate mouse position in normalized device coordinates
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -136,6 +157,11 @@
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
+
+            if (!mesh) {
+                renderer.render(scene, camera);
+                return; // Wait for texture to load
+            }
 
             // Rotate the mesh
             mesh.rotation.x += 0.005;
