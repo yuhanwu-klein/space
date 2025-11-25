@@ -50,19 +50,46 @@
         let material;
         let mesh;
 
-        textureLoader.load('WechatIMG543.jpg', function(texture) {
-            // Create transparent material with texture
-            material = new THREE.MeshPhongMaterial({
-                map: texture,
-                transparent: true,
-                opacity: 0.8,
-                side: THREE.DoubleSide
-            });
+        // Function to create mesh with or without texture
+        function createMesh(texture) {
+            if (texture) {
+                // Create transparent material with texture
+                material = new THREE.MeshPhongMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.8,
+                    side: THREE.DoubleSide
+                });
+            } else {
+                // Fallback to colored material if texture fails to load
+                material = new THREE.MeshPhongMaterial({
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0.6,
+                    side: THREE.DoubleSide
+                });
+            }
 
             // Create mesh with box geometry initially
             mesh = new THREE.Mesh(boxGeometry, material);
             scene.add(mesh);
-        });
+        }
+
+        // Try to load texture, fallback to color if it fails
+        textureLoader.load(
+            'WechatIMG543.jpg',
+            function(texture) {
+                // Success - create mesh with texture
+                createMesh(texture);
+                console.log('Texture loaded successfully');
+            },
+            undefined,
+            function(error) {
+                // Error - create mesh with fallback color
+                console.warn('Texture failed to load, using fallback color');
+                createMesh(null);
+            }
+        );
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
