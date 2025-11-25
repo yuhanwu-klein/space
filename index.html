@@ -195,11 +195,18 @@
             mesh.rotation.x += 0.005;
             mesh.rotation.y += 0.01;
 
-            // Smooth spatial movement - gentle floating motion
-            time += 0.01;
-            mesh.position.x = Math.sin(time * 0.7) * 1.5;
-            mesh.position.y = Math.cos(time * 0.5) * 1.2;
-            mesh.position.z = Math.sin(time * 0.3) * 0.8;
+            // Bouncing motion - like a ball bouncing in space
+            time += 0.02;
+
+            // Horizontal bouncing (left-right)
+            mesh.position.x = Math.sin(time * 0.8) * 2.0;
+
+            // Vertical bouncing (up-down) - using abs for bounce effect
+            const bounceHeight = Math.abs(Math.sin(time * 1.2)) * 1.8 - 0.5;
+            mesh.position.y = bounceHeight;
+
+            // Depth bouncing (forward-backward)
+            mesh.position.z = Math.abs(Math.cos(time * 0.9)) * 1.0 - 0.3;
 
             // Handle morphing animation
             if (isTransforming) {
