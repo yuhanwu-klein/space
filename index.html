@@ -110,85 +110,8 @@
         camera.position.z = 5;
 
         // Animation state
-        let isTransforming = [false, false, false];
-        let isSphere = [false, false, false];
-        let morphProgress = [0, 0, 0];
-        const morphSpeed = 0.02;
         let time = 0;
 
-        // Intro sequence state
-        let introSequence = true;
-        const introDuration = 6; // seconds
-        let introTime = 0;
-
-        // Create morph target vertices
-        function createMorphedGeometry(progress) {
-            const geometry = new THREE.BufferGeometry();
-            const boxPositions = boxGeometry.attributes.position.array;
-            const spherePositions = sphereGeometry.attributes.position.array;
-            const boxUVs = boxGeometry.attributes.uv.array;
-            const sphereUVs = sphereGeometry.attributes.uv.array;
-
-            const positions = new Float32Array(boxPositions.length);
-            const uvs = new Float32Array(boxUVs.length);
-
-            for (let i = 0; i < positions.length; i++) {
-                if (isSphere) {
-                    // Morphing from sphere to box
-                    positions[i] = spherePositions[i] + (boxPositions[i] - spherePositions[i]) * progress;
-                } else {
-                    // Morphing from box to sphere
-                    positions[i] = boxPositions[i] + (spherePositions[i] - boxPositions[i]) * progress;
-                }
-            }
-
-            for (let i = 0; i < uvs.length; i++) {
-                if (isSphere) {
-                    // Morphing from sphere to box
-                    uvs[i] = sphereUVs[i] + (boxUVs[i] - sphereUVs[i]) * progress;
-                } else {
-                    // Morphing from box to sphere
-                    uvs[i] = boxUVs[i] + (sphereUVs[i] - boxUVs[i]) * progress;
-                }
-            }
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-            geometry.computeVertexNormals();
-
-            return geometry;
-        }
-
-        // Raycaster for click detection
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        function onMouseClick(event) {
-            if (meshes.length === 0) return; // Wait for texture to load
-
-            // Calculate mouse position in normalized device coordinates
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            // Update the raycaster
-            raycaster.setFromCamera(mouse, camera);
-
-            // Check for intersections with all meshes
-            const intersects = raycaster.intersectObjects(meshes);
-
-            if (intersects.length > 0) {
-                // Find which mesh was clicked
-                const clickedMesh = intersects[0].object;
-                const meshIndex = meshes.indexOf(clickedMesh);
-
-                if (meshIndex !== -1 && !isTransforming[meshIndex]) {
-                    isTransforming[meshIndex] = true;
-                    morphProgress[meshIndex] = 0;
-                }
-            }
-        }
-
-        window.addEventListener('click', onMouseClick);
 
         // Handle window resize
         window.addEventListener('resize', function() {
@@ -206,108 +129,36 @@
                 return; // Wait for texture to load
             }
 
-            time += 0.02;
+            time += 0.016; // ~60fps
 
-            // INTRO SEQUENCE: Three circles rotating around each other
-            if (introSequence) {
-                introTime += 0.016; // ~60fps
+            const radius = 2.5;
+            const orbitSpeed = 1.5;
 
-                const radius = 2.5;
-                const orbitSpeed = 1.5;
+            // Three circles orbital dance
+            for (let i = 0; i < meshes.length; i++) {
+                const mesh = meshes[i];
+                const angleOffset = (i * Math.PI * 2) / meshCount;
 
-                for (let i = 0; i < meshes.length; i++) {
-                    const mesh = meshes[i];
-                    const angleOffset = (i * Math.PI * 2) / meshCount;
+                // Circular orbit around center
+                mesh.position.x = Math.cos(time * orbitSpeed + angleOffset) * radius;
+                mesh.position.y = Math.sin(time * orbitSpeed + angleOffset) * radius;
+                mesh.position.z = Math.sin(time * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
 
-                    // Circular orbit around center
-                    mesh.position.x = Math.cos(introTime * orbitSpeed + angleOffset) * radius;
-                    mesh.position.y = Math.sin(introTime * orbitSpeed + angleOffset) * radius;
-                    mesh.position.z = Math.sin(introTime * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
+                // Individual rotation
+                mesh.rotation.x += 0.01;
+                mesh.rotation.y += 0.015;
+                mesh.rotation.z += 0.005;
 
-                    // Individual rotation
-                    mesh.rotation.x += 0.01;
-                    mesh.rotation.y += 0.015;
-                    mesh.rotation.z += 0.005;
-
-                    // Scale animation
-                    const pulse = 0.8 + Math.sin(introTime * 3 + i) * 0.2;
-                    mesh.scale.set(pulse, pulse, pulse);
-                }
-
-                // Camera looks at center during intro
-                camera.position.x = 0;
-                camera.position.y = 0;
-                camera.position.z = 5;
-                camera.lookAt(0, 0, 0);
-
-                // Check if intro is complete
-                if (introTime >= introDuration) {
-                    introSequence = false;
-                }
+                // Scale animation
+                const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
+                mesh.scale.set(pulse, pulse, pulse);
             }
-            // MAIN ANIMATION: Bouncing motion
-            else {
-                for (let i = 0; i < meshes.length; i++) {
-                    const mesh = meshes[i];
-                    const timeOffset = i * 2; // Stagger animations
 
-                    // Rotate the mesh
-                    mesh.rotation.x += 0.005;
-                    mesh.rotation.y += 0.01;
-
-                    // Bouncing motion - like a ball bouncing in space
-                    // Horizontal bouncing (left-right)
-                    mesh.position.x = Math.sin((time + timeOffset) * 0.8) * 2.5;
-
-                    // Vertical bouncing (up-down) - using abs for bounce effect
-                    const bounceHeight = Math.abs(Math.sin((time + timeOffset) * 1.2)) * 2.2 - 0.6;
-                    mesh.position.y = bounceHeight;
-
-                    // Depth bouncing (forward-backward) - keep safe distance from camera
-                    mesh.position.z = Math.sin((time + timeOffset) * 0.6) * 2.0 - 1.0;
-
-                    // Scale based on depth to enhance perspective (closer = bigger)
-                    const depthScale = 1 + (mesh.position.z / 10);
-                    mesh.scale.set(depthScale, depthScale, depthScale);
-
-                    // Handle morphing animation for this mesh
-                    if (isTransforming[i]) {
-                        morphProgress[i] += morphSpeed;
-
-                        if (morphProgress[i] >= 1) {
-                            morphProgress[i] = 1;
-                            isTransforming[i] = false;
-                            isSphere[i] = !isSphere[i];
-
-                            // Update geometry to final state
-                            const currentMaterial = mesh.material;
-                            scene.remove(mesh);
-                            meshes[i] = new THREE.Mesh(
-                                isSphere[i] ? sphereGeometry : boxGeometry,
-                                currentMaterial
-                            );
-                            scene.add(meshes[i]);
-                        } else {
-                            // Update geometry during morphing
-                            const morphedGeometry = createMorphedGeometry(morphProgress[i]);
-                            const currentMaterial = mesh.material;
-                            scene.remove(mesh);
-                            meshes[i] = new THREE.Mesh(morphedGeometry, currentMaterial);
-                            scene.add(meshes[i]);
-                        }
-                    }
-                }
-
-                // Dynamic camera movement for enhanced spatial perception
-                camera.position.x = Math.sin(time * 0.15) * 0.8;
-                camera.position.y = Math.cos(time * 0.2) * 0.5;
-
-                // Look at the center of all meshes
-                const centerX = meshes.reduce((sum, m) => sum + m.position.x, 0) / meshes.length;
-                const centerY = meshes.reduce((sum, m) => sum + m.position.y, 0) / meshes.length;
-                const centerZ = meshes.reduce((sum, m) => sum + m.position.z, 0) / meshes.length;
-                camera.lookAt(centerX, centerY, centerZ);
-            }
+            // Camera looks at center
+            camera.position.x = 0;
+            camera.position.y = 0;
+            camera.position.z = 5;
+            camera.lookAt(0, 0, 0);
 
             renderer.render(scene, camera);
         }
