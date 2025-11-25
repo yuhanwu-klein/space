@@ -71,9 +71,31 @@
                 });
             }
 
+            // Small sphere geometry for inner spheres
+            const smallSphereGeometry = new THREE.SphereGeometry(0.6, 32, 32);
+
+            // Metallic colors for inner spheres
+            const metallicColors = [0x0066ff, 0xffdd00, 0xff3333]; // Blue, Yellow, Red
+
             // Create three meshes with box geometry initially
             for (let i = 0; i < meshCount; i++) {
                 const mesh = new THREE.Mesh(boxGeometry, material.clone());
+
+                // Create small metallic sphere inside the box
+                const metallicMaterial = new THREE.MeshStandardMaterial({
+                    color: metallicColors[i],
+                    metalness: 0.9,
+                    roughness: 0.2,
+                    emissive: metallicColors[i],
+                    emissiveIntensity: 0.2
+                });
+
+                const innerSphere = new THREE.Mesh(smallSphereGeometry, metallicMaterial);
+                innerSphere.position.set(0, 0, 0); // Center inside the box
+
+                // Add sphere as child of box so it moves with it
+                mesh.add(innerSphere);
+
                 meshes.push(mesh);
                 scene.add(mesh);
             }
