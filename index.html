@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Box to Sphere Animation</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">Click the box to transform it into a sphere!</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Load background texture
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load('background.png', function(texture) {
+            scene.background = texture;
+        });
+
+        // Create box geometry
+        const boxGeometry = new THREE.BoxGeometry(2, 2, 2);
+        const sphereGeometry = new THREE.SphereGeometry(1.4, 32, 32);
+
+        // Create transparent material
+        const material = new THREE.MeshPhongMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.6,
+            wireframe: false,
+            side: THREE.DoubleSide
+        });
+
+        // Create mesh with box geometry initially
+        let mesh = new THREE.Mesh(boxGeometry, material);
+        scene.add(mesh);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(5, 5, 5);
+        scene.add(pointLight);
+
+        const pointLight2 = new THREE.PointLight(0xff00ff, 0.5);
+        pointLight2.position.set(-5, -5, -5);
+        scene.add(pointLight2);
+
+        camera.position.z = 5;
+
+        // Animation state
+        let isTransforming = false;
+        let isSphere = false;
+        let morphProgress = 0;
+        const morphSpeed = 0.02;
+
+        // Create morph target vertices
+        function createMorphedGeometry(progress) {
+            const geometry = new THREE.BufferGeometry();
+            const boxPositions = boxGeometry.attributes.position.array;
+            const spherePositions = sphereGeometry.attributes.position.array;
+
+            const positions = new Float32Array(boxPositions.length);
+
+            for (let i = 0; i < positions.length; i++) {
+                if (isSphere) {
+                    // Morphing from sphere to box
+                    positions[i] = spherePositions[i] + (boxPositions[i] - spherePositions[i]) * progress;
+                } else {
+                    // Morphing from box to sphere
+                    positions[i] = boxPositions[i] + (spherePositions[i] - boxPositions[i]) * progress;
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.computeVertexNormals();
+
+            return geometry;
+        }
+
+        // Raycaster for click detection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseClick(event) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update the raycaster
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check for intersections
+            const intersects = raycaster.intersectObject(mesh);
+
+            if (intersects.length > 0 && !isTransforming) {
+                isTransforming = true;
+                morphProgress = 0;
+            }
+        }
+
+        window.addEventListener('click', onMouseClick);
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate the mesh
+            mesh.rotation.x += 0.005;
+            mesh.rotation.y += 0.01;
+
+            // Handle morphing animation
+            if (isTransforming) {
+                morphProgress += morphSpeed;
+
+                if (morphProgress >= 1) {
+                    morphProgress = 1;
+                    isTransforming = false;
+                    isSphere = !isSphere;
+
+                    // Update geometry to final state
+                    scene.remove(mesh);
+                    mesh = new THREE.Mesh(isSphere ? sphereGeometry : boxGeometry, material);
+                    scene.add(mesh);
+                } else {
+                    // Update geometry during morphing
+                    const morphedGeometry = createMorphedGeometry(morphProgress);
+                    scene.remove(mesh);
+                    mesh = new THREE.Mesh(morphedGeometry, material);
+                    scene.add(mesh);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
