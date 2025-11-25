@@ -172,6 +172,11 @@
         let isSphere = [false, false, false]; // Track which meshes are spheres
         let isFading = [false, false, false]; // Track which meshes are fading out
         let fadeProgress = [1.0, 1.0, 1.0]; // Opacity for each mesh (1.0 = fully visible)
+        let isMetallicOnly = [false, false, false]; // Track which are standalone metallic spheres
+        let isAligning = false; // Track if alignment is in progress
+        let alignProgress = 0; // Progress of alignment animation (0 to 1)
+        let startPositions = []; // Starting positions for alignment
+        let targetPositions = []; // Target positions for vertical alignment
 
         // Raycaster for click detection
         const raycaster = new THREE.Raycaster();
@@ -252,22 +257,54 @@
             const radius = 2.5;
             const orbitSpeed = 0.5; // Slower orbital speed
 
-            // Three circles orbital dance
+            // Handle alignment animation
+            if (isAligning) {
+                alignProgress += 0.01; // Alignment speed
+
+                if (alignProgress >= 1) {
+                    alignProgress = 1;
+                    // Keep them at target positions after alignment
+                    for (let i = 0; i < meshes.length; i++) {
+                        if (isMetallicOnly[i]) {
+                            meshes[i].position.copy(targetPositions[i]);
+                        }
+                    }
+                } else {
+                    // Interpolate positions
+                    for (let i = 0; i < meshes.length; i++) {
+                        if (isMetallicOnly[i]) {
+                            meshes[i].position.lerpVectors(
+                                startPositions[i],
+                                targetPositions[i],
+                                alignProgress
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Three circles orbital dance (only for non-aligned meshes)
             for (let i = 0; i < meshes.length; i++) {
                 const mesh = meshes[i];
-                const angleOffset = (i * Math.PI * 2) / meshCount;
 
-                // Circular orbit around center
-                mesh.position.x = Math.cos(time * orbitSpeed + angleOffset) * radius;
-                mesh.position.y = Math.sin(time * orbitSpeed + angleOffset) * radius;
-                mesh.position.z = Math.sin(time * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
+                // Only animate orbit if not a metallic sphere or still aligning
+                if (!isMetallicOnly[i] || (isMetallicOnly[i] && alignProgress < 1)) {
+                    const angleOffset = (i * Math.PI * 2) / meshCount;
+
+                    // Circular orbit around center
+                    if (!isMetallicOnly[i]) {
+                        mesh.position.x = Math.cos(time * orbitSpeed + angleOffset) * radius;
+                        mesh.position.y = Math.sin(time * orbitSpeed + angleOffset) * radius;
+                        mesh.position.z = Math.sin(time * orbitSpeed * 0.5 + angleOffset) * 1.0 - 0.5;
+                    }
+                }
 
                 // Individual rotation - slower
                 mesh.rotation.x += 0.003;
                 mesh.rotation.y += 0.005;
                 mesh.rotation.z += 0.002;
 
-                // Scale animation
+                // Scale animation (continue for aligned spheres too)
                 const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
                 mesh.scale.set(pulse, pulse, pulse);
 
@@ -302,6 +339,30 @@
                             scene.remove(mesh);
                             meshes[i] = innerSphere;
                             scene.add(innerSphere);
+
+                            // Mark as metallic only
+                            isMetallicOnly[i] = true;
+
+                            // Check if all three are now metallic only
+                            if (isMetallicOnly[0] && isMetallicOnly[1] && isMetallicOnly[2] && !isAligning) {
+                                // Start alignment animation
+                                isAligning = true;
+                                alignProgress = 0;
+
+                                // Store starting positions
+                                startPositions = [
+                                    meshes[0].position.clone(),
+                                    meshes[1].position.clone(),
+                                    meshes[2].position.clone()
+                                ];
+
+                                // Set target positions (vertical line)
+                                targetPositions = [
+                                    new THREE.Vector3(0, 2, 0),    // Top
+                                    new THREE.Vector3(0, 0, 0),    // Middle
+                                    new THREE.Vector3(0, -2, 0)    // Bottom
+                                ];
+                            }
                         } else {
                             // If no inner sphere, just hide outer mesh
                             mesh.visible = false;
