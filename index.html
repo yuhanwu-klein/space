@@ -401,6 +401,8 @@
         let sendToSkyProgress = [0, 0, 0]; // Progress of sending to sky animation
         let cardDisplayTimeout = [null, null, null]; // Timeout for card display
         let zodiacClicked = [false, false, false]; // Track if zodiac was clicked
+        let skyZodiacs = [[], [], []]; // Store zodiac particles that reached the sky
+        let inSky = [false, false, false]; // Track if zodiac is in the sky
 
         // Raycaster for click detection
         const raycaster = new THREE.Raycaster();
@@ -845,18 +847,62 @@
                     sendToSkyProgress[i] += 0.012; // Speed of ascent
 
                     if (sendToSkyProgress[i] >= 1) {
-                        // Animation complete - remove particles from scene
+                        // Animation complete - keep particles in sky as white stars
                         sendToSkyProgress[i] = 1;
+
+                        // Transform particles to distant white stars
                         for (let j = 0; j < zodiacParticles[i].length; j++) {
-                            scene.remove(zodiacParticles[i][j]);
+                            const particle = zodiacParticles[i][j];
+
+                            // Store original relative position for pattern preservation
+                            if (!particle.userData.skyRelativePos) {
+                                const centerX = zodiacParticles[i].reduce((sum, p) => sum + p.position.x, 0) / zodiacParticles[i].length;
+                                const centerY = zodiacParticles[i].reduce((sum, p) => sum + p.position.y, 0) / zodiacParticles[i].length;
+
+                                particle.userData.skyRelativePos = {
+                                    x: (particle.position.x - centerX) * 0.3, // Smaller scale for background
+                                    y: (particle.position.y - centerY) * 0.3,
+                                    z: particle.position.z * 0.3
+                                };
+                            }
+
+                            // Move to distant sky position (spread horizontally based on zodiac)
+                            const skyX = (i - 1) * 4; // -4, 0, 4 for three zodiacs
+                            const skyY = 8; // High in the sky
+                            const skyZ = -15; // Far in the background
+
+                            particle.position.x = skyX + particle.userData.skyRelativePos.x;
+                            particle.position.y = skyY + particle.userData.skyRelativePos.y;
+                            particle.position.z = skyZ + particle.userData.skyRelativePos.z;
+
+                            // Transform to white/bright color
+                            particle.material.color.setHex(0xffffff);
+                            particle.material.emissive.setHex(0xffffff);
+                            particle.material.emissiveIntensity = 0.8;
+
+                            // Make smaller and dimmer for distant appearance
+                            particle.scale.set(0.4, 0.4, 0.4);
+                            particle.material.opacity = 0.5 + Math.random() * 0.3;
+
+                            // Store twinkle properties for background animation
+                            particle.userData.skyTwinkleSpeed = 1 + Math.random() * 2;
+                            particle.userData.skyTwinklePhase = Math.random() * Math.PI * 2;
                         }
+
+                        // Remove zodiac light
                         if (zodiacLights[i]) {
                             scene.remove(zodiacLights[i]);
+                            zodiacLights[i] = null;
                         }
+
+                        // Move particles to sky storage
+                        skyZodiacs[i] = zodiacParticles[i];
                         zodiacParticles[i] = [];
                         isSendingToSky[i] = false;
                         isTransformingToZodiac[i] = false;
-                        console.log(`Zodiac ${i} has reached the sky`);
+                        inSky[i] = true;
+
+                        console.log(`Zodiac ${i} has reached the sky and is now visible as background stars`);
                     } else {
                         // Animate particles going upward and fading out
                         const progress = sendToSkyProgress[i];
@@ -888,6 +934,31 @@
                         if (zodiacLights[i]) {
                             zodiacLights[i].intensity = (1 - progress) * 3;
                         }
+                    }
+                }
+            }
+
+            // Animate zodiac stars in the sky background
+            for (let i = 0; i < 3; i++) {
+                if (inSky[i] && skyZodiacs[i].length > 0) {
+                    for (let j = 0; j < skyZodiacs[i].length; j++) {
+                        const star = skyZodiacs[i][j];
+
+                        // Twinkling effect
+                        const twinkle = Math.sin(time * star.userData.skyTwinkleSpeed + star.userData.skyTwinklePhase);
+                        const twinkleFactor = 0.5 + twinkle * 0.5; // Range 0 to 1
+
+                        star.material.opacity = (0.3 + twinkleFactor * 0.5) * (0.5 + Math.random() * 0.3);
+                        star.material.emissiveIntensity = 0.5 + twinkleFactor * 0.5;
+
+                        // Subtle floating motion
+                        const skyX = (i - 1) * 4;
+                        const skyY = 8;
+                        const skyZ = -15;
+
+                        star.position.x = skyX + star.userData.skyRelativePos.x + Math.sin(time * 0.5 + j * 0.1) * 0.05;
+                        star.position.y = skyY + star.userData.skyRelativePos.y + Math.cos(time * 0.5 + j * 0.15) * 0.05;
+                        star.position.z = skyZ + star.userData.skyRelativePos.z + Math.sin(time * 0.3 + j * 0.2) * 0.1;
                     }
                 }
             }
