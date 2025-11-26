@@ -179,10 +179,9 @@
         let targetPositions = []; // Target positions for vertical alignment
 
         // Zodiac transformation state
-        let zodiacTriggered = false; // Track if zodiac transformation has been triggered
-        let isBouncing = false; // Track if bounce animation is active
-        let bounceProgress = 0; // Progress of bounce animation (0 to 1)
-        let bounceStartY = 0; // Starting Y position for bounce
+        let isBouncing = [false, false, false]; // Track if each sphere is bouncing
+        let bounceProgress = [0, 0, 0]; // Progress of bounce animation for each sphere
+        let bounceStartY = [0, 0, 0]; // Starting Y position for bounce for each sphere
         let isTransformingToZodiac = [false, false, false]; // Track zodiac transformation
         let zodiacTransformProgress = [0, 0, 0]; // Progress of zodiac transformation (0 to 1)
         let zodiacParticles = [[], [], []]; // Particle systems for each zodiac
@@ -362,17 +361,15 @@
                 const meshIndex = meshes.indexOf(clickedMesh);
 
                 if (meshIndex !== -1) {
-                    // Check if clicking on aligned metallic sphere (blue one triggers zodiac)
-                    if (isMetallicOnly[meshIndex] && alignProgress >= 1 && !zodiacTriggered) {
-                        if (meshIndex === 0) {
-                            // Clicked blue sphere - trigger zodiac transformation
-                            zodiacTriggered = true;
-                            isBouncing = true;
-                            bounceProgress = 0;
-                            bounceStartY = meshes[0].position.y;
+                    // Check if clicking on aligned metallic sphere to trigger zodiac transformation
+                    if (isMetallicOnly[meshIndex] && alignProgress >= 1 && !isBouncing[meshIndex] && !isTransformingToZodiac[meshIndex]) {
+                        // Trigger zodiac transformation for this specific sphere
+                        isBouncing[meshIndex] = true;
+                        bounceProgress[meshIndex] = 0;
+                        bounceStartY[meshIndex] = meshes[meshIndex].position.y;
 
-                            console.log('Starting zodiac transformation sequence');
-                        }
+                        const zodiacNames = ['Pisces', 'Taurus', 'Aries'];
+                        console.log(`Starting ${zodiacNames[meshIndex]} transformation`);
                     } else if (!isSphere[meshIndex]) {
                         // Only transform cube to sphere (not sphere back to cube)
                         isSphere[meshIndex] = true;
@@ -457,45 +454,43 @@
                 }
             }
 
-            // Handle bounce animation for blue sphere
-            if (isBouncing) {
-                bounceProgress += 0.02; // Bounce speed
+            // Handle bounce animation for each sphere individually
+            const zodiacTypes = ['pisces', 'taurus', 'aries'];
+            const colors = [0x0066ff, 0xffdd00, 0xff3333];
 
-                if (bounceProgress >= 1) {
-                    // Bounce complete - start zodiac transformation for all three
-                    isBouncing = false;
-                    bounceProgress = 0;
+            for (let i = 0; i < 3; i++) {
+                if (isBouncing[i]) {
+                    bounceProgress[i] += 0.02; // Bounce speed
 
-                    // Start transforming all three spheres to zodiac patterns
-                    isTransformingToZodiac[0] = true; // Blue -> Pisces
-                    isTransformingToZodiac[1] = true; // Yellow -> Taurus
-                    isTransformingToZodiac[2] = true; // Red -> Aries
+                    if (bounceProgress[i] >= 1) {
+                        // Bounce complete - start zodiac transformation for this sphere
+                        isBouncing[i] = false;
+                        bounceProgress[i] = 0;
 
-                    // Create zodiac particles and lights for each sphere
-                    const zodiacTypes = ['pisces', 'taurus', 'aries'];
-                    const colors = [0x0066ff, 0xffdd00, 0xff3333];
+                        // Start transforming this sphere to zodiac pattern
+                        isTransformingToZodiac[i] = true;
 
-                    for (let i = 0; i < 3; i++) {
+                        // Create zodiac particles for this sphere
                         zodiacParticles[i] = createZodiacParticles(
                             zodiacTypes[i],
                             colors[i],
                             meshes[i].position
                         );
 
-                        // Create glowing point light for each zodiac
+                        // Create glowing point light for this zodiac
                         zodiacLights[i] = new THREE.PointLight(colors[i], 0, 3);
                         zodiacLights[i].position.copy(meshes[i].position);
                         scene.add(zodiacLights[i]);
+
+                        console.log(`${zodiacTypes[i]} transformation started`);
+                    } else {
+                        // Bounce up and down (3 bounces)
+                        const numBounces = 3;
+                        const bounceHeight = 1.5;
+                        const bounceY = Math.abs(Math.sin(bounceProgress[i] * Math.PI * numBounces)) * bounceHeight;
+
+                        meshes[i].position.y = bounceStartY[i] + bounceY;
                     }
-
-                    console.log('Zodiac transformation started');
-                } else {
-                    // Bounce up and down (3 bounces)
-                    const numBounces = 3;
-                    const bounceHeight = 1.5;
-                    const bounceY = Math.abs(Math.sin(bounceProgress * Math.PI * numBounces)) * bounceHeight;
-
-                    meshes[0].position.y = bounceStartY + bounceY;
                 }
             }
 
@@ -633,15 +628,15 @@
                     }
                 }
 
-                // Individual rotation - slower (skip if bouncing)
-                if (!isBouncing || i !== 0) {
+                // Individual rotation - slower (skip if this sphere is bouncing)
+                if (!isBouncing[i]) {
                     mesh.rotation.x += 0.003;
                     mesh.rotation.y += 0.005;
                     mesh.rotation.z += 0.002;
                 }
 
-                // Scale animation (continue for aligned spheres too, skip if bouncing)
-                if (!isBouncing || i !== 0) {
+                // Scale animation (continue for aligned spheres too, skip if this sphere is bouncing)
+                if (!isBouncing[i]) {
                     const pulse = 0.8 + Math.sin(time * 3 + i) * 0.2;
                     mesh.scale.set(pulse, pulse, pulse);
                 }
