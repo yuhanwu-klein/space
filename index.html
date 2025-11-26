@@ -128,6 +128,39 @@
         pointLight2.position.set(-5, -5, -5);
         scene.add(pointLight2);
 
+        // Create aurora lights - multiple colored lights that move like northern lights
+        const auroraLights = [];
+        const auroraColors = [
+            0x00ff88, // Green
+            0x0088ff, // Blue
+            0xff00ff, // Purple/Magenta
+            0x00ffff, // Cyan
+            0xff0088, // Pink
+            0x88ff00  // Yellow-green
+        ];
+
+        for (let i = 0; i < 6; i++) {
+            const auroraLight = new THREE.PointLight(auroraColors[i], 0, 8);
+
+            // Initial positions spread around the scene
+            const angle = (i / 6) * Math.PI * 2;
+            auroraLight.position.x = Math.cos(angle) * 6;
+            auroraLight.position.y = Math.sin(angle) * 4;
+            auroraLight.position.z = -2 + (i % 3) * 2;
+
+            // Store initial phase for wave animation
+            auroraLight.userData.phaseX = Math.random() * Math.PI * 2;
+            auroraLight.userData.phaseY = Math.random() * Math.PI * 2;
+            auroraLight.userData.phaseZ = Math.random() * Math.PI * 2;
+            auroraLight.userData.speedX = 0.3 + Math.random() * 0.3;
+            auroraLight.userData.speedY = 0.4 + Math.random() * 0.4;
+            auroraLight.userData.speedZ = 0.2 + Math.random() * 0.2;
+            auroraLight.userData.intensityPhase = Math.random() * Math.PI * 2;
+
+            scene.add(auroraLight);
+            auroraLights.push(auroraLight);
+        }
+
         camera.position.z = 5;
 
         // Create bright stars in the background
@@ -704,6 +737,32 @@
                         // Update material opacity
                         mesh.material.opacity = fadeProgress[i] * 0.8; // Original opacity was 0.8
                     }
+                }
+            }
+
+            // Animate aurora lights - wave-like movement with varying intensity
+            for (let i = 0; i < auroraLights.length; i++) {
+                const light = auroraLights[i];
+
+                // Wave-like position animation - aurora effect
+                const t = time * 0.5;
+                light.position.x = Math.sin(t * light.userData.speedX + light.userData.phaseX) * 6;
+                light.position.y = Math.cos(t * light.userData.speedY + light.userData.phaseY) * 4 +
+                                   Math.sin(t * light.userData.speedY * 2) * 1.5;
+                light.position.z = Math.sin(t * light.userData.speedZ + light.userData.phaseZ) * 2;
+
+                // Pulsing intensity like aurora borealis
+                const intensityWave1 = Math.sin(t * 1.5 + light.userData.intensityPhase);
+                const intensityWave2 = Math.cos(t * 2.3 + light.userData.intensityPhase * 1.7);
+                const baseIntensity = 0.3 + (intensityWave1 * 0.5 + 0.5) * 0.4;
+                const flickerIntensity = (intensityWave2 * 0.5 + 0.5) * 0.3;
+
+                light.intensity = baseIntensity + flickerIntensity;
+
+                // Occasionally create bright flares
+                const flareChance = Math.sin(time * 3 + i * 100);
+                if (flareChance > 0.97) {
+                    light.intensity += 0.5;
                 }
             }
 
