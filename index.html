@@ -396,6 +396,12 @@
         let zodiacLights = [null, null, null]; // Point lights for zodiac glow
         let particleGeometry = new THREE.SphereGeometry(0.03, 8, 8); // Shared geometry for particles
 
+        // Sending to sky state
+        let isSendingToSky = [false, false, false]; // Track if zodiac is being sent to sky
+        let sendToSkyProgress = [0, 0, 0]; // Progress of sending to sky animation
+        let cardDisplayTimeout = [null, null, null]; // Timeout for card display
+        let zodiacClicked = [false, false, false]; // Track if zodiac was clicked
+
         // Raycaster for click detection
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -560,54 +566,104 @@
             // Update the raycaster
             raycaster.setFromCamera(mouse, camera);
 
-            // Check for intersections with all meshes
-            const intersects = raycaster.intersectObjects(meshes);
+            // First check if clicking on zodiac particles
+            let clickedZodiac = false;
+            for (let i = 0; i < 3; i++) {
+                if (isTransformingToZodiac[i] && zodiacParticles[i].length > 0 && !isSendingToSky[i]) {
+                    const zodiacIntersects = raycaster.intersectObjects(zodiacParticles[i]);
+                    if (zodiacIntersects.length > 0) {
+                        // Clicked on zodiac - show card and prepare to send to sky
+                        zodiacClicked[i] = true;
 
-            if (intersects.length > 0) {
-                // Find which mesh was clicked
-                const clickedMesh = intersects[0].object;
-                const meshIndex = meshes.indexOf(clickedMesh);
+                        // Force show the card immediately
+                        zodiacCards.forEach(card => card.classList.remove('visible'));
+                        zodiacCards[i].classList.add('visible');
 
-                if (meshIndex !== -1) {
-                    // Check if clicking on aligned metallic sphere to trigger zodiac transformation
-                    if (isMetallicOnly[meshIndex] && alignProgress >= 1 && !isBouncing[meshIndex] && !isTransformingToZodiac[meshIndex]) {
-                        // Trigger zodiac transformation for this specific sphere
-                        isBouncing[meshIndex] = true;
-                        bounceProgress[meshIndex] = 0;
-                        bounceStartY[meshIndex] = meshes[meshIndex].position.y;
+                        // Position card at click location
+                        const cardWidth = 320;
+                        const cardHeight = 420;
+                        const padding = 20;
+                        let left = event.clientX + padding;
+                        let top = event.clientY - cardHeight / 2;
+                        if (left + cardWidth > window.innerWidth) {
+                            left = event.clientX - cardWidth - padding;
+                        }
+                        if (top < padding) top = padding;
+                        if (top + cardHeight > window.innerHeight - padding) {
+                            top = window.innerHeight - cardHeight - padding;
+                        }
+                        zodiacCards[i].style.left = left + 'px';
+                        zodiacCards[i].style.top = top + 'px';
 
-                        const zodiacNames = ['Pisces', 'Taurus', 'Aries'];
-                        console.log(`Starting ${zodiacNames[meshIndex]} transformation`);
-                    } else if (!isSphere[meshIndex]) {
-                        // Only transform cube to sphere (not sphere back to cube)
-                        isSphere[meshIndex] = true;
-
-                        // Get the current material and inner sphere
-                        const currentMaterial = clickedMesh.material;
-                        const innerSphere = clickedMesh.children[0]; // Get the metallic sphere inside
-
-                        // Remove old mesh
-                        scene.remove(clickedMesh);
-
-                        // Create new mesh with sphere geometry
-                        const newMesh = new THREE.Mesh(sphereGeometry, currentMaterial);
-
-                        // Re-add the inner sphere
-                        if (innerSphere) {
-                            newMesh.add(innerSphere);
+                        // Clear any existing timeout
+                        if (cardDisplayTimeout[i]) {
+                            clearTimeout(cardDisplayTimeout[i]);
                         }
 
-                        // Copy position, rotation, and scale from old mesh
-                        newMesh.position.copy(clickedMesh.position);
-                        newMesh.rotation.copy(clickedMesh.rotation);
-                        newMesh.scale.copy(clickedMesh.scale);
+                        // After 3 seconds, hide card and start sending to sky
+                        cardDisplayTimeout[i] = setTimeout(() => {
+                            zodiacCards[i].classList.remove('visible');
+                            isSendingToSky[i] = true;
+                            sendToSkyProgress[i] = 0;
+                            console.log(`Sending zodiac ${i} to the sky`);
+                        }, 3000);
 
-                        // Replace in array and add to scene
-                        meshes[meshIndex] = newMesh;
-                        scene.add(newMesh);
+                        clickedZodiac = true;
+                        return; // Don't check other click targets
+                    }
+                }
+            }
 
-                        // Start fade-out animation
-                        isFading[meshIndex] = true;
+            if (!clickedZodiac) {
+                // Check for intersections with all meshes
+                const intersects = raycaster.intersectObjects(meshes);
+
+                if (intersects.length > 0) {
+                    // Find which mesh was clicked
+                    const clickedMesh = intersects[0].object;
+                    const meshIndex = meshes.indexOf(clickedMesh);
+
+                    if (meshIndex !== -1) {
+                        // Check if clicking on aligned metallic sphere to trigger zodiac transformation
+                        if (isMetallicOnly[meshIndex] && alignProgress >= 1 && !isBouncing[meshIndex] && !isTransformingToZodiac[meshIndex]) {
+                            // Trigger zodiac transformation for this specific sphere
+                            isBouncing[meshIndex] = true;
+                            bounceProgress[meshIndex] = 0;
+                            bounceStartY[meshIndex] = meshes[meshIndex].position.y;
+
+                            const zodiacNames = ['Pisces', 'Taurus', 'Aries'];
+                            console.log(`Starting ${zodiacNames[meshIndex]} transformation`);
+                        } else if (!isSphere[meshIndex]) {
+                            // Only transform cube to sphere (not sphere back to cube)
+                            isSphere[meshIndex] = true;
+
+                            // Get the current material and inner sphere
+                            const currentMaterial = clickedMesh.material;
+                            const innerSphere = clickedMesh.children[0]; // Get the metallic sphere inside
+
+                            // Remove old mesh
+                            scene.remove(clickedMesh);
+
+                            // Create new mesh with sphere geometry
+                            const newMesh = new THREE.Mesh(sphereGeometry, currentMaterial);
+
+                            // Re-add the inner sphere
+                            if (innerSphere) {
+                                newMesh.add(innerSphere);
+                            }
+
+                            // Copy position, rotation, and scale from old mesh
+                            newMesh.position.copy(clickedMesh.position);
+                            newMesh.rotation.copy(clickedMesh.rotation);
+                            newMesh.scale.copy(clickedMesh.scale);
+
+                            // Replace in array and add to scene
+                            meshes[meshIndex] = newMesh;
+                            scene.add(newMesh);
+
+                            // Start fade-out animation
+                            isFading[meshIndex] = true;
+                        }
                     }
                 }
             }
@@ -641,11 +697,11 @@
             // Update raycaster
             raycaster.setFromCamera(mouse, camera);
 
-            // Check intersection with zodiac particles
+            // Check intersection with zodiac particles (only if not clicked and not sending to sky)
             let hoveredZodiac = -1;
 
             for (let i = 0; i < 3; i++) {
-                if (isTransformingToZodiac[i] && zodiacParticles[i].length > 0) {
+                if (isTransformingToZodiac[i] && zodiacParticles[i].length > 0 && !zodiacClicked[i] && !isSendingToSky[i]) {
                     const intersects = raycaster.intersectObjects(zodiacParticles[i]);
 
                     if (intersects.length > 0) {
@@ -655,7 +711,7 @@
                 }
             }
 
-            // Update card visibility
+            // Update card visibility (only for hover, not for clicked zodiacs)
             if (hoveredZodiac !== currentHoveredZodiac) {
                 currentHoveredZodiac = hoveredZodiac;
 
@@ -783,9 +839,62 @@
                 }
             }
 
+            // Handle sending zodiac to sky animation
+            for (let i = 0; i < 3; i++) {
+                if (isSendingToSky[i]) {
+                    sendToSkyProgress[i] += 0.012; // Speed of ascent
+
+                    if (sendToSkyProgress[i] >= 1) {
+                        // Animation complete - remove particles from scene
+                        sendToSkyProgress[i] = 1;
+                        for (let j = 0; j < zodiacParticles[i].length; j++) {
+                            scene.remove(zodiacParticles[i][j]);
+                        }
+                        if (zodiacLights[i]) {
+                            scene.remove(zodiacLights[i]);
+                        }
+                        zodiacParticles[i] = [];
+                        isSendingToSky[i] = false;
+                        isTransformingToZodiac[i] = false;
+                        console.log(`Zodiac ${i} has reached the sky`);
+                    } else {
+                        // Animate particles going upward and fading out
+                        const progress = sendToSkyProgress[i];
+                        const easeProgress = 1 - Math.pow(1 - progress, 2); // Ease out
+
+                        for (let j = 0; j < zodiacParticles[i].length; j++) {
+                            const particle = zodiacParticles[i][j];
+
+                            // Move upward with acceleration
+                            particle.position.y += 0.05 + easeProgress * 0.1;
+
+                            // Add some spreading/dispersing effect
+                            const spreadAmount = easeProgress * 0.02;
+                            particle.position.x += (Math.random() - 0.5) * spreadAmount;
+                            particle.position.z += (Math.random() - 0.5) * spreadAmount;
+
+                            // Fade out
+                            particle.material.opacity = (1 - progress) * 0.8;
+
+                            // Sparkle effect during ascent
+                            const sparkle = Math.sin(time * 8 + j);
+                            particle.material.emissiveIntensity = particle.userData.baseEmissiveIntensity * (1 - progress) * (1 + sparkle * 0.5);
+
+                            // Rotate as they ascend
+                            particle.rotation.y += 0.05;
+                        }
+
+                        // Fade out the zodiac light
+                        if (zodiacLights[i]) {
+                            zodiacLights[i].intensity = (1 - progress) * 3;
+                        }
+                    }
+                }
+            }
+
             // Handle zodiac transformation animation
             for (let i = 0; i < 3; i++) {
-                if (isTransformingToZodiac[i]) {
+                if (isTransformingToZodiac[i] && !isSendingToSky[i]) {
                     zodiacTransformProgress[i] += 0.008; // Slow transformation
 
                     if (zodiacTransformProgress[i] >= 1) {
